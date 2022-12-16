@@ -1,3 +1,4 @@
+"use strict";
 //Compatible with MET Version 1.3.4
 //Compatible with Worldpainter Version 2.15.11
 //Created by MattiBorchers
@@ -571,7 +572,14 @@ if ( true ) {
 	
 	//heightmap backup, for example for ocean tiles without heightmap data or settings with larger then 1 Dagree per Tile
 	var heightMap = wp.getHeightMap().fromFile(path+'image_exports/'+tile+'/'+heightmapName+'.png').go();
-	if (verticalScale === 200) {
+	if (verticalScale === 300) {
+		var world = wp.createWorld()
+			.fromHeightMap(heightMap)
+			.shift(shiftLongitute, shiftLatitude)
+			.fromLevels(0, 255).toLevels(62, 86)
+			.withMapFormat(platformMapFormat)
+			.go();
+	} else if (verticalScale === 200) {
 		var world = wp.createWorld()
 			.fromHeightMap(heightMap)
 			.shift(shiftLongitute, shiftLatitude)
@@ -626,7 +634,14 @@ if ( true ) {
 	//real heightmap if available for 2032 Minecraft height (1 Dagree per Tile, 16bit image)
 	if ( new java.io.File(path+'image_exports/'+tile+'/heightmap/'+heightmapName+'.png').isFile() ) {
 		var heightMap = wp.getHeightMap().fromFile(path+'image_exports/'+tile+'/heightmap/'+heightmapName+'.png').go();
-		if ( verticalScale === 200 ) {
+		if ( verticalScale === 300 ) {
+			var world = wp.createWorld()
+				.fromHeightMap(heightMap)
+				.shift(shiftLongitute, shiftLatitude)
+				.fromLevels(0, 50).toLevels(56, 86)
+				.withMapFormat(platformMapFormat)
+				.go();
+		} else if ( verticalScale === 200 ) {
 			var world = wp.createWorld()
 				.fromHeightMap(heightMap)
 				.shift(shiftLongitute, shiftLatitude)
@@ -706,7 +721,7 @@ if ( true ) {
 		world.setGameType(gameType);
 	} else if ( ( verticalScale === 25 || verticalScale === 10 || verticalScale === 5 ) && ( settingsMapVersion === "1-18" || settingsMapVersion === "1-19" ) && tilesPerMap === 1) {
 		var world2 = wp.getWorld()
-			.fromFile(path+'wpscript/1-18-ex.world') //ex has -64/2032 block limit (only usefull for 1 DPT and verticle scale of 1:25, 1:10, 1:5)
+			.fromFile(path+'wpscript/1-18-ex.world') //ex has -64/2032 block limit (only usefull for 1 DPT and vertical scale of 1:25, 1:10, 1:5)
 			.go();
 		var gameType = world2.getGameType();
 		world.setGameType(gameType);
@@ -727,6 +742,27 @@ if ( true ) {
 	//var dimension = world.getDimension(0);
 	//dimension.setMinecraftSeed(27594263);
 
+	var bathymetryScale = 1.0;
+	if ( verticalScale === 300 ) {
+		bathymetryScale = 0.2;
+	} else if ( verticalScale === 200 ) {
+		bathymetryScale = 0.3;
+	} else if ( verticalScale === 100 ) {
+		bathymetryScale = 0.4;
+	} else if ( verticalScale === 75 ) {
+		bathymetryScale = 0.5;
+	} else if ( verticalScale === 50 ) {
+		bathymetryScale = 0.6;
+	} else if ( verticalScale === 35 ) {
+		bathymetryScale = 0.7;
+	} else if ( verticalScale === 25 ) {
+		bathymetryScale = 0.8;
+	} else if ( verticalScale === 10 ) {
+		bathymetryScale = 0.9;
+	} else if ( verticalScale === 5 ) {
+		bathymetryScale = 1.0;
+	}
+
 	//set water level to 1 on land, so it is possible to have land below Y=62
 	Myimage = javax.imageio.ImageIO.read(new java.io.File(path+'image_exports/'+tile+'/'+tile+'_bathymetry.png'));
 	var dimension = world.getDimension(0);
@@ -738,13 +774,15 @@ if ( true ) {
 				dimension.setWaterLevelAt(x + shiftLongitute, y + shiftLatitude, 1);
 			} else {
 				var height = raster.getSample(x, y, 0);
+				var diff = Math.ceil(( 255 - height ) *  bathymetryScale);
+				var newHeight = 255 - diff;
 				if ( settingsMapVersion === "1-18" || settingsMapVersion === "1-19" ) {
-					dimension.setHeightAt(x + shiftLongitute, y + shiftLatitude, height - 193);
+					dimension.setHeightAt(x + shiftLongitute, y + shiftLatitude, newHeight - 193);
 				} else {
-					if ( height - 193 <= 1 ) {
+					if ( newHeight - 193 <= 1 ) {
 						dimension.setHeightAt(x + shiftLongitute, y + shiftLatitude, 1);
 					} else {
-						dimension.setHeightAt(x + shiftLongitute, y + shiftLatitude, height - 193);
+						dimension.setHeightAt(x + shiftLongitute, y + shiftLatitude, newHeight - 193);
 					}
 				}
 			}
@@ -771,8 +809,6 @@ if ( true ) {
 	var terrain = wp.getTerrain().fromFile(path+'wpscript/terrain/jungle_steep.terrain').go();
 	var jungleSteepTerrain = wp.installCustomTerrain(terrain).toWorld(world).inSlot(3).go(); //Slot 3 = 49 see Documentation
 	if ( settingsMapVersion === "1-17" || settingsMapVersion === "1-18" || settingsMapVersion === "1-19" ) {
-		var terrain = wp.getTerrain().fromFile(path+'wpscript/terrain/moss_block.terrain').go();
-		var importedMossTerrain = wp.installCustomTerrain(terrain).toWorld(world).inSlot(4).go(); //Slot 4 = 50 see Documentation
 		var terrain = wp.getTerrain().fromFile(path+'wpscript/terrain/snow_powder_snow.terrain').go();
 		var importedPowderSnowTerrain = wp.installCustomTerrain(terrain).toWorld(world).inSlot(5).go(); //Slot 5 = 51 see Documentation
 	}
@@ -783,10 +819,15 @@ if ( true ) {
 	}
 	if ( settingsMapVersion === "1-17" || settingsMapVersion === "1-18" || settingsMapVersion === "1-19" ) {
 		var snowTerrain = 51;
-		var mossTerrain = 50;
+		var mossTerrain = 160; //moss
 	} else {
 		var snowTerrain = 40; //deep_snow
 		var mossTerrain = grassTerrain; //grass
+	}
+	if ( settingsMapVersion === "1-19" ) {
+		var mudTerrain = 158;
+	} else {
+		var mudTerrain = 3; //coarse dirt
 	}
 	
 }
@@ -796,48 +837,392 @@ if ( true )	{
 	
 	var dimension = world.getDimension(0);
 	var customBiomes = new java.util.ArrayList();
+
+	if ( mod_BOP === "True" ) {
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:bamboo_grove", 55, 0xffff00ff));
+		var BIOME_BOP_BAMBOO_GROVE = 55;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:bayou", 56, 0xffff00ff));
+		var BIOME_BOP_BAYOU = 56;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:bog", 57, 0xffff00ff));
+		var BIOME_BOP_BOG = 57;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:cherry_blossom_grove", 58, 0xffff00ff));
+		var BIOME_BOP_CHERRY_BLOSSOM_GROVE = 58;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:clover_patch", 59, 0xffff00ff));
+		var BIOME_BOP_CLOVER_PATCH = 59;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:cold_desert", 60, 0xffff00ff));
+		var BIOME_BOP_COLD_DESERT = 60;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:coniferous_forest", 61, 0xffff00ff));
+		var BIOME_BOP_CONIFEROUS_FOREST = 61;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:crag", 62, 0xffff00ff));
+		var BIOME_BOP_CRAG = 62;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:dead_forest", 63, 0xffff00ff));
+		var BIOME_BOP_DEAD_FOREST = 63;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:dryland", 64, 0xffff00ff));
+		var BIOME_BOP_DRYLAND = 64;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:dune_beach", 65, 0xffff00ff));
+		var BIOME_BOP_DUNE_BEACH = 65;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:field", 66, 0xffff00ff));
+		var BIOME_BOP_FIELD = 66;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:fir_clearing", 67, 0xffff00ff));
+		var BIOME_BOP_FIR_CLEARING = 67;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:grassland", 68, 0xffff00ff));
+		var BIOME_BOP_GRASSLAND = 68;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:highland", 69, 0xffff00ff));
+		var BIOME_BOP_HIGHLAND = 69;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:highland_moor", 70, 0xffff00ff));
+		var BIOME_BOP_HIGHLAND_MOOR = 70;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:jade_cliffs", 71, 0xffff00ff));
+		var BIOME_BOP_JADE_CLIFFS = 71;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:lavender_field", 72, 0xffff00ff));
+		var BIOME_BOP_LAVENDER_FIELD = 72;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:lavender_forest", 73, 0xffff00ff));
+		var BIOME_BOP_LAVENDER_FOREST = 73;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:lush_desert", 74, 0xffff00ff));
+		var BIOME_BOP_LUSH_DESERT = 74;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:lush_savanna", 75, 0xffff00ff));
+		var BIOME_BOP_LUSH_SAVANNA = 75;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:marsh", 76, 0xffff00ff));
+		var BIOME_BOP_MARSH = 76;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:mediterranean_forest", 77, 0xffff00ff));
+		var BIOME_BOP_MEDITERRANEAN_FOREST = 77;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:muskeg", 78, 0xffff00ff));
+		var BIOME_BOP_MUSKEG = 78;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:old_growth_dead_forest", 79, 0xffff00ff));
+		var BIOME_BOP_OLD_GROWTH_DEAD_FOREST = 79;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:old_growth_woodland", 80, 0xffff00ff));
+		var BIOME_BOP_OLD_GROWTH_WOODLAND = 80;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:orchard", 81, 0xffff00ff));
+		var BIOME_BOP_ORCHARD = 81;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:pasture", 82, 0xffff00ff));
+		var BIOME_BOP_PASTURE = 82;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:prairie", 83, 0xffff00ff));
+		var BIOME_BOP_PRAIRIE = 83;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:pumpkin_patch", 84, 0xffff00ff));
+		var BIOME_BOP_PUMPKIN_PATCH = 84;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:rainforest", 85, 0xffff00ff));
+		var BIOME_BOP_RAINFOREST = 85;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:redwood_forest", 86, 0xffff00ff));
+		var BIOME_BOP_REDWOOD_FOREST = 86;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:rocky_rainforest", 87, 0xffff00ff));
+		var BIOME_BOP_ROCKY_RAINFOREST = 87;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:shrubland", 88, 0xffff00ff));
+		var BIOME_BOP_SHRUBLAND = 88;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:scrubland", 89, 0xffff00ff));
+		var BIOME_BOP_SCRUBLAND = 89;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:seasonal_forest", 90, 0xffff00ff));
+		var BIOME_BOP_SEASONAL_FOREST = 90;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:seasonal_orchard", 91, 0xffff00ff));
+		var BIOME_BOP_SEASONAL_ORCHARD = 91;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:shrubland", 92, 0xffff00ff));
+		var BIOME_BOP_SHRUBLAND = 92;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:snowy_coniferous_forest", 93, 0xffff00ff));
+		var BIOME_BOP_SNOWY_CONIFEROUS_FOREST = 93;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:snowy_maple_woods", 94, 0xffff00ff));
+		var BIOME_BOP_SNOWY_MAPLE_WOODS = 94;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:tropics", 95, 0xffff00ff));
+		var BIOME_BOP_TROPICS = 95;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:tundra", 96, 0xffff00ff));
+		var BIOME_BOP_TUNDRA = 96;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:volcanic_plains", 97, 0xffff00ff));
+		var BIOME_BOP_VOLCANIC_PLAINS = 97;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:volcano", 98, 0xffff00ff));
+		var BIOME_BOP_VOLCANO = 98;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:wasteland", 99, 0xffff00ff));
+		var BIOME_BOP_WASTELAND = 99;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:wetland", 100, 0xffff00ff));
+		var BIOME_BOP_WETLAND = 100;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:wooded_scrubland", 101, 0xffff00ff));
+		var BIOME_BOP_WOODED_SCRUBLAND = 101;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:wooded_wasteland", 102, 0xffff00ff));
+		var BIOME_BOP_WOODED_WASTELAND = 102;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:woodlandwoodland", 103, 0xffff00ff));
+		var BIOME_BOP_WOODLANDWOODLAND = 103;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:woodland", 104, 0xffff00ff));
+		var BIOME_BOP_WOODLAND = 104;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:floodplain", 105, 0xffff00ff));
+		var BIOME_BOP_FLOODPLAIN = 105;
+	}
 	
-	if ( mod_BOP === true ) {
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:bamboo_grove", 52, 0xffff00ff));
-		var BIOME_BoP_BAMBOO_GROVE = 52;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:volcano", 53, 0xffff00ff));
-		var BIOME_BoP_VOLCANO = 53;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:muskeg", 54, 0xffff00ff));
-		var BIOME_BoP_MUSKET = 54;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:bayou", 55, 0xffff00ff));
-		var BIOME_BoP_BAYOU = 55;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:boreal_forest", 56, 0xffff00ff));
-		var BIOME_BoP_BOREAL_FOREST = 56;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:mediterranean_forest", 57, 0xffff00ff));
-		var BIOME_BoP_MEDITERRANEAN_FOREST = 57;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:coniferous_forest", 58, 0xffff00ff));
-		var BIOME_BoP_CONRIFEROUS_FOREST = 58;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:forested_field", 59, 0xffff00ff));
-		var BIOME_BoP_FORESTED_FIELD = 59;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:field", 60, 0xffff00ff));
-		var BIOME_BoP_FIELD = 60;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:dune_beach", 61, 0xffff00ff));
-		var BIOME_BoP_DUNE_BEACH = 61;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:lush_desert", 62, 0xffff00ff));
-		var BIOME_BoP_LUSH_DESERT = 62;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:prairie", 63, 0xffff00ff));
-		var BIOME_BoP_PRAIRIE = 63;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:pasture", 64, 0xffff00ff));
-		var BIOME_BoP_PASTURE = 64;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:rainforest", 65, 0xffff00ff));
-		var BIOME_BoP_RAINFOREST = 65;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:shrubland", 66, 0xffff00ff));
-		var BIOME_BoP_SHRUBLAND = 66;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:highland_moor", 67, 0xffff00ff));
-		var BIOME_BoP_HIGHLAND_MOOR = 67;
-		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("biomesoplenty:maple_woods", 68, 0xffff00ff));
-		var BIOME_BoP_MAPLE_WOODS = 68;
+	if ( mod_BYG === "True" ) {
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:baobab_savanna", 55, 0xffff00ff));
+		var BIOME_BAOBAB_SAVANNA = 55;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:dead_sea", 56, 0xffff00ff));
+		var BIOME_DEAD_SEA = 56;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:lush_stacks", 57, 0xffff00ff));
+		var BIOME_LUSH_STACKS = 57;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:mojave_desert", 58, 0xffff00ff));
+		var BIOME_MOJAVE_DESERT = 58;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:atacama_desert", 59, 0xffff00ff));
+		var BIOME_ATACAMA_DESERT = 59;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:red_rock_valley", 60, 0xffff00ff));
+		var BIOME_RED_ROCK_VALLEY = 60;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:windswept_desert", 61, 0xffff00ff));
+		var BIOME_WINDSWEPT_DESERT = 61;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:firecracker_shrubland", 62, 0xffff00ff));
+		var BIOME_FIRECRACKER_SHRUBLAND = 62;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:sierra_badlands", 63, 0xffff00ff));
+		var BIOME_SIERRA_BADLANDS = 63;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:allium_fields", 64, 0xffff00ff));
+		var BIOME_ALLIUM_FIELDS = 64;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:amaranth_fields", 65, 0xffff00ff));
+		var BIOME_AMARANTH_FIELDS = 65;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:aspen_forest", 66, 0xffff00ff));
+		var BIOME_ASPEN_FOREST = 66;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:bayou", 67, 0xffff00ff));
+		var BIOME_BAYOU = 67;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:crag_gardens", 68, 0xffff00ff));
+		var BIOME_CRAG_GARDENS = 68;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:cypress_swamplands", 69, 0xffff00ff));
+		var BIOME_CYPRESS_SWAMPLANDS = 69;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:cherry_blossom_forest", 70, 0xffff00ff));
+		var BIOME_CHERRY_BLOSSOM_FOREST = 70;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:ebony_woods", 71, 0xffff00ff));
+		var BIOME_EBONY_WOODS = 71;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:forgotten_forest", 72, 0xffff00ff));
+		var BIOME_FORGOTTEN_FOREST = 72;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:temperate_grove", 73, 0xffff00ff));
+		var BIOME_TEMPERATE_GROVE = 73;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:guiana_shield", 74, 0xffff00ff));
+		var BIOME_GUIANA_SHIELD = 74;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:jacaranda_forest", 75, 0xffff00ff));
+		var BIOME_JACARANDA_FOREST = 75;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:white_mangrove_marshes", 76, 0xffff00ff));
+		var BIOME_WHITE_MANGROVE_MARSHES = 76;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:coconino_meadow", 77, 0xffff00ff));
+		var BIOME_COCONINO_MEADOW = 77;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:orchard", 78, 0xffff00ff));
+		var BIOME_ORCHARD = 78;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:prairie", 79, 0xffff00ff));
+		var BIOME_PRAIRIE = 79;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:red_oak_forest", 80, 0xffff00ff));
+		var BIOME_RED_OAK_FOREST = 80;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:redwood_thicket", 81, 0xffff00ff));
+		var BIOME_REDWOOD_THICKET = 81;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:tropical_rainforest", 82, 0xffff00ff));
+		var BIOME_TROPICAL_RAINFOREST = 82;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:temperate_rainforest", 83, 0xffff00ff));
+		var BIOME_TEMPERATE_RAINFOREST = 83;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:autumnal_valley", 84, 0xffff00ff));
+		var BIOME_AUTUMNAL_VALLEY = 84;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:canadian_shield", 85, 0xffff00ff));
+		var BIOME_CANADIAN_SHIELD = 85;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:borealis_grove", 86, 0xffff00ff));
+		var BIOME_BOREALIS_GROVE = 86;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:cika_woods", 87, 0xffff00ff));
+		var BIOME_CIKA_WOODS = 87;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:coniferous_forest", 88, 0xffff00ff));
+		var BIOME_CONIFEROUS_FOREST = 88;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:dacite_ridges", 89, 0xffff00ff));
+		var BIOME_DACITE_RIDGES = 89;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:maple_taiga", 90, 0xffff00ff));
+		var BIOME_MAPLE_TAIGA = 90;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:autumnal_forest", 91, 0xffff00ff));
+		var BIOME_AUTUMNAL_FOREST = 91;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:autumnal_taiga", 92, 0xffff00ff));
+		var BIOME_AUTUMNAL_TAIGA = 92;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:skyris_vale", 93, 0xffff00ff));
+		var BIOME_SKYRIS_VALE = 93;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:black_forest", 94, 0xffff00ff));
+		var BIOME_BLACK_FOREST = 94;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:weeping_witch_forest", 95, 0xffff00ff));
+		var BIOME_WEEPING_WITCH_FOREST = 95;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:zelkova_forest", 96, 0xffff00ff));
+		var BIOME_ZELKOVA_FOREST = 96;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:cardinal_tundra", 97, 0xffff00ff));
+		var BIOME_CARDINAL_TUNDRA = 97;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:shattered_glacier", 98, 0xffff00ff));
+		var BIOME_SHATTERED_GLACIER = 98;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:frosted_taiga", 99, 0xffff00ff));
+		var BIOME_FROSTED_TAIGA = 99;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:frosted_coniferous_forest", 100, 0xffff00ff));
+		var BIOME_FROSTED_CONIFEROUS_FOREST = 100;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:fragment_forest", 101, 0xffff00ff));
+		var BIOME_FRAGMENT_FOREST = 101;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:araucaria_savanna", 102, 0xffff00ff));
+		var BIOME_ARAUCARIA_SAVANNA = 102;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:rose_fields", 103, 0xffff00ff));
+		var BIOME_ROSE_FIELDS = 103;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:twilight_meadow", 104, 0xffff00ff));
+		var BIOME_TWILIGHT_MEADOW = 104;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:howling_peaks", 105, 0xffff00ff));
+		var BIOME_HOWLING_PEAKS = 105;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:rainbow_beach", 106, 0xffff00ff));
+		var BIOME_RAINBOW_BEACH = 106;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:dacite_shore", 107, 0xffff00ff));
+		var BIOME_DACITE_SHORE = 107;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("byg:basalt_barrera", 108, 0xffff00ff));
+		var BIOME_BASALT_BARRERA = 108;
+	}
+		
+	if ( mod_Terralith === "True" ) {
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:alpine_grove", 55, 0xffff00ff));
+		var BIOME_ALPINE_GROVE = 55;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:alpine_highlands", 56, 0xffff00ff));
+		var BIOME_ALPINE_HIGHLANDS = 56;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:amethyst_canyon", 57, 0xffff00ff));
+		var BIOME_AMETHYST_CANYON = 57;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:amethyst_rainforest", 58, 0xffff00ff));
+		var BIOME_AMETHYST_RAINFOREST = 58;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:ancient_sands", 59, 0xffff00ff));
+		var BIOME_ANCIENT_SANDS = 59;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:arid_highlands", 60, 0xffff00ff));
+		var BIOME_ARID_HIGHLANDS = 60;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:ashen_savanna", 61, 0xffff00ff));
+		var BIOME_ASHEN_SAVANNA = 61;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:basalt_cliffs", 62, 0xffff00ff));
+		var BIOME_BASALT_CLIFFS = 62;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:birch_taiga", 63, 0xffff00ff));
+		var BIOME_BIRCH_TAIGA = 63;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:blooming_plateau", 64, 0xffff00ff));
+		var BIOME_BLOOMING_PLATEAU = 64;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:blooming_valley", 65, 0xffff00ff));
+		var BIOME_BLOOMING_VALLEY = 65;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:brushland", 66, 0xffff00ff));
+		var BIOME_BRUSHLAND = 66;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:bryce_canyon", 67, 0xffff00ff));
+		var BIOME_BRYCE_CANYON = 67;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:caldera", 68, 0xffff00ff));
+		var BIOME_CALDERA = 68;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:cloud_forest", 69, 0xffff00ff));
+		var BIOME_CLOUD_FOREST = 69;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:cold_shrubland", 70, 0xffff00ff));
+		var BIOME_COLD_SHRUBLAND = 70;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:desert_canyon", 71, 0xffff00ff));
+		var BIOME_DESERT_CANYON = 71;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:desert_oasis", 72, 0xffff00ff));
+		var BIOME_DESERT_OASIS = 72;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:desert_spires", 73, 0xffff00ff));
+		var BIOME_DESERT_SPIRES = 73;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:emerald_peaks", 74, 0xffff00ff));
+		var BIOME_EMERALD_PEAKS = 74;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:forested_highlands", 75, 0xffff00ff));
+		var BIOME_FORESTED_HIGHLANDS = 75;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:fractured_savanna", 76, 0xffff00ff));
+		var BIOME_FRACTURED_SAVANNA = 76;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:frozen_cliffs", 77, 0xffff00ff));
+		var BIOME_FROZEN_CLIFFS = 77;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:glacial_chasm", 78, 0xffff00ff));
+		var BIOME_GLACIAL_CHASM = 78;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:granite_cliffs", 79, 0xffff00ff));
+		var BIOME_GRANITE_CLIFFS = 79;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:gravel_beach", 80, 0xffff00ff));
+		var BIOME_GRAVEL_BEACH = 80;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:gravel_desert", 81, 0xffff00ff));
+		var BIOME_GRAVEL_DESERT = 81;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:haze_mountain", 82, 0xffff00ff));
+		var BIOME_HAZE_MOUNTAIN = 82;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:highlands", 83, 0xffff00ff));
+		var BIOME_HIGHLANDS = 83;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:hot_shrubland", 84, 0xffff00ff));
+		var BIOME_HOT_SHRUBLAND = 84;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:ice_marsh", 85, 0xffff00ff));
+		var BIOME_ICE_MARSH = 85;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:jungle_mountains", 86, 0xffff00ff));
+		var BIOME_JUNGLE_MOUNTAINS = 86;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:lavender_forest", 87, 0xffff00ff));
+		var BIOME_LAVENDER_FOREST = 87;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:lavender_valley", 88, 0xffff00ff));
+		var BIOME_LAVENDER_VALLEY = 88;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:lush_desert", 89, 0xffff00ff));
+		var BIOME_LUSH_DESERT = 89;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:lush_valley", 90, 0xffff00ff));
+		var BIOME_LUSH_VALLEY = 90;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:mirage_isles", 91, 0xffff00ff));
+		var BIOME_MIRAGE_ISLES = 91;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:moonlight_grove", 92, 0xffff00ff));
+		var BIOME_MOONLIGHT_GROVE = 92;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:moonlight_valley", 93, 0xffff00ff));
+		var BIOME_MOONLIGHT_VALLEY = 93;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:orchid_swamp", 94, 0xffff00ff));
+		var BIOME_ORCHID_SWAMP = 94;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:painted_mountains", 95, 0xffff00ff));
+		var BIOME_PAINTED_MOUNTAINS = 95;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:red_oasis", 96, 0xffff00ff));
+		var BIOME_RED_OASIS = 96;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:rocky_jungle", 97, 0xffff00ff));
+		var BIOME_ROCKY_JUNGLE = 97;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:rocky_mountains", 98, 0xffff00ff));
+		var BIOME_ROCKY_MOUNTAINS = 98;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:rocky_shrubland", 99, 0xffff00ff));
+		var BIOME_ROCKY_SHRUBLAND = 99;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:sakura_grove", 100, 0xffff00ff));
+		var BIOME_SAKURA_GROVE = 100;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:sakura_valley", 101, 0xffff00ff));
+		var BIOME_SAKURA_VALLEY = 101;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:sandstone_valley", 102, 0xffff00ff));
+		var BIOME_SANDSTONE_VALLEY = 102;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:savanna_badlands", 103, 0xffff00ff));
+		var BIOME_SAVANNA_BADLANDS = 103;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:savanna_slopes", 104, 0xffff00ff));
+		var BIOME_SAVANNA_SLOPES = 104;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:scarlet_mountains", 105, 0xffff00ff));
+		var BIOME_SCARLET_MOUNTAINS = 105;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:shield_clearing", 106, 0xffff00ff));
+		var BIOME_SHIELD_CLEARING = 106;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:shield", 107, 0xffff00ff));
+		var BIOME_SHIELD = 107;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:shrubland", 108, 0xffff00ff));
+		var BIOME_SHRUBLAND = 108;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:siberian_grove", 109, 0xffff00ff));
+		var BIOME_SIBERIAN_GROVE = 109;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:siberian_taiga", 110, 0xffff00ff));
+		var BIOME_SIBERIAN_TAIGA = 110;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:skylands", 111, 0xffff00ff));
+		var BIOME_SKYLANDS = 111;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:skylands_autumn", 112, 0xffff00ff));
+		var BIOME_SKYLANDS_AUTUMN = 112;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:skylands_spring", 113, 0xffff00ff));
+		var BIOME_SKYLANDS_SPRING = 113;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:skylands_summer", 114, 0xffff00ff));
+		var BIOME_SKYLANDS_SUMMER = 114;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:skylands_winter", 115, 0xffff00ff));
+		var BIOME_SKYLANDS_WINTER = 115;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:snowy_badlands", 116, 0xffff00ff));
+		var BIOME_SNOWY_BADLANDS = 116;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:snowy_maple_forest", 117, 0xffff00ff));
+		var BIOME_SNOWY_MAPLE_FOREST = 117;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:snowy_shield", 118, 0xffff00ff));
+		var BIOME_SNOWY_SHIELD = 118;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:steppe", 119, 0xffff00ff));
+		var BIOME_STEPPE = 119;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:stony_spires", 180, 0xffff00ff));
+		var BIOME_STONY_SPIRES = 180;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:temperate_highlands", 181, 0xffff00ff));
+		var BIOME_TEMPERATE_HIGHLANDS = 181;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:tropical_jungle", 182, 0xffff00ff));
+		var BIOME_TROPICAL_JUNGLE = 182;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:valley_clearing", 183, 0xffff00ff));
+		var BIOME_VALLEY_CLEARING = 183;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:volcanic_crater", 184, 0xffff00ff));
+		var BIOME_VOLCANIC_CRATER = 184;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:volcanic_peaks", 185, 0xffff00ff));
+		var BIOME_VOLCANIC_PEAKS = 185;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:warm_river", 186, 0xffff00ff));
+		var BIOME_WARM_RIVER = 186;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:warped_mesa", 187, 0xffff00ff));
+		var BIOME_WARPED_MESA = 187;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:white_cliffs", 188, 0xffff00ff));
+		var BIOME_WHITE_CLIFFS = 188;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:white_mesa", 189, 0xffff00ff));
+		var BIOME_WHITE_MESA = 189;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:windswept_spires", 190, 0xffff00ff));
+		var BIOME_WINDSWEPT_SPIRES = 190;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:wintry_forest", 191, 0xffff00ff));
+		var BIOME_WINTRY_FOREST = 191;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:wintry_lowlands", 192, 0xffff00ff));
+		var BIOME_WINTRY_LOWLANDS = 192;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:yellowstone", 193, 0xffff00ff));
+		var BIOME_YELLOWSTONE = 193;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:yosemite_cliffs", 194, 0xffff00ff));
+		var BIOME_YOSEMITE_CLIFFS = 194;
+		customBiomes.add(new org.pepsoft.worldpainter.biomeschemes.CustomBiome("terralith:yosemite_lowlands", 195, 0xffff00ff));
+		var BIOME_YOSEMITE_LOWLANDS = 195;
 	}
 	
 	dimension.setCustomBiomes(customBiomes);
 
 }
-	
+
 	//filters
 if ( true ) {
 	
@@ -857,40 +1242,6 @@ if ( true ) {
 	var waterFilter = wp.createFilter()
 		.onlyOnWater() // only on real ocean (no rivers or lakes
 		.go();
-
-	if (verticalScale === 200)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(72)
-			.go();
-	} else if (verticalScale === 100)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(82)
-			.go();
-	} else if (verticalScale === 75)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(92)
-			.go();
-	} else if (verticalScale === 50)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(101)
-			.go();
-	} else if (verticalScale === 35)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(124)
-			.go();
-	} else if (verticalScale === 25)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(145)
-			.go();
-	} else if (verticalScale === 10)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(256)
-			.go();
-	} else if (verticalScale === 5)  {
-		var mountainFilter = wp.createFilter()
-			.aboveLevel(466)
-			.go();
-	}
 
 	var oceanFilter = wp.createFilter()
 		.onlyOnLayer(oceanLayer)
@@ -1004,11 +1355,12 @@ if ( true ) {
 //Insert custom biomes / modded biomes beginning here:
 
 
-   wp.applyHeightMap(ecoRegionImage)
+   var eco_vanilla = wp.applyHeightMap(ecoRegionImage)
     .toWorld(world)
     .shift(shiftLongitute, shiftLatitude)
-    .applyToLayer(biomesLayer)
-    .fromColour(143,206,84).toLevel(BIOME_JUNGLE) //Admiralty Islands lowland rain forests
+    .applyToLayer(biomesLayer);
+
+    eco_vanilla = eco_vanilla.fromColour(143,206,84).toLevel(BIOME_JUNGLE) //Admiralty Islands lowland rain forests
     .fromColour(234,50,112).toLevel(BIOME_SUNFLOWER_PLAINS) //Aegean and Western Turkey sclerophyllous and mixed forests
     .fromColour(57,239,142).toLevel(BIOME_DESERT) //Afghan Mountains semi-desert
     .fromColour(115,209,143).toLevel(BIOME_WINDSWEPT_SAVANNA) //Al Hajar montane woodlands
@@ -1071,8 +1423,9 @@ if ( true ) {
     .fromColour(198,208,83).toLevel(BIOME_DESERT) //Baja California desert
     .fromColour(64,219,126).toLevel(BIOME_SPARSE_JUNGLE) //Bajío dry forests
     .fromColour(60,208,159).toLevel(BIOME_FOREST) //Balkan mixed forests
-    .fromColour(214,119,189).toLevel(BIOME_SPARSE_JUNGLE) //Balsas dry forests
-    .fromColour(174,211,38).toLevel(BIOME_FLOWER_FOREST) //Baltic mixed forests
+    .fromColour(214,119,189).toLevel(BIOME_SPARSE_JUNGLE); //Balsas dry forests
+
+    eco_vanilla = eco_vanilla.fromColour(174,211,38).toLevel(BIOME_FLOWER_FOREST) //Baltic mixed forests
     .fromColour(59,25,232).toLevel(BIOME_DESERT) //Baluchistan xeric woodlands
     .fromColour(117,236,148).toLevel(BIOME_JUNGLE) //Banda Sea Islands moist deciduous forests
     .fromColour(158,64,225).toLevel(BIOME_FOREST) //Belizian pine forests
@@ -1135,8 +1488,9 @@ if ( true ) {
     .fromColour(73,86,233).toLevel(BIOME_PLAINS) //Central Anatolian steppe and woodlands
     .fromColour(231,181,55).toLevel(BIOME_OLD_GROWTH_PINE_TAIGA) //Central and Southern Cascades forests
     .fromColour(180,209,126).toLevel(BIOME_PLAINS) //Central and Southern mixed grasslands
-    .fromColour(200,85,115).toLevel(BIOME_WINDSWEPT_GRAVELLY_HILLS) //Central Andean dry puna
-    .fromColour(211,95,199).toLevel(BIOME_DESERT) //Central Andean puna
+    .fromColour(200,85,115).toLevel(BIOME_WINDSWEPT_GRAVELLY_HILLS); //Central Andean dry puna
+
+    eco_vanilla = eco_vanilla.fromColour(211,95,199).toLevel(BIOME_DESERT) //Central Andean puna
     .fromColour(208,217,79).toLevel(BIOME_STONY_PEAKS) //Central Andean wet puna
     .fromColour(20,200,128).toLevel(BIOME_DESERT) //Central Asian northern desert
     .fromColour(212,77,124).toLevel(BIOME_PLAINS) //Central Asian riparian woodlands
@@ -1199,8 +1553,9 @@ if ( true ) {
     .fromColour(211,29,153).toLevel(BIOME_JUNGLE) //Cross-Niger transition forests
     .fromColour(18,211,237).toLevel(BIOME_JUNGLE) //Cross-Sanaga-Bioko coastal forests
     .fromColour(208,81,18).toLevel(BIOME_PLAINS) //Cuban cactus scrub
-    .fromColour(63,57,235).toLevel(BIOME_SPARSE_JUNGLE) //Cuban dry forests
-    .fromColour(234,14,219).toLevel(BIOME_JUNGLE) //Cuban moist forests
+    .fromColour(63,57,235).toLevel(BIOME_SPARSE_JUNGLE); //Cuban dry forests
+
+    eco_vanilla = eco_vanilla.fromColour(234,14,219).toLevel(BIOME_JUNGLE) //Cuban moist forests
     .fromColour(58,200,202).toLevel(BIOME_FOREST) //Cuban pine forests
     .fromColour(212,62,24).toLevel(BIOME_SWAMP) //Cuban wetlands
     .fromColour(239,21,144).toLevel(BIOME_SUNFLOWER_PLAINS) //Cyprus Mediterranean forests
@@ -1262,15 +1617,10 @@ if ( true ) {
     .fromColour(70,203,137).toLevel(BIOME_OLD_GROWTH_PINE_TAIGA) //Ethiopian montane forests
     .fromColour(206,201,99).toLevel(BIOME_WOODED_BADLANDS) //Ethiopian montane grasslands and woodlands
     .fromColour(211,225,106).toLevel(BIOME_WINDSWEPT_SAVANNA) //Ethiopian montane moorlands
-    .go();
-
-   wp.applyHeightMap(ecoRegionImage)
-    .toWorld(world)
-    .shift(shiftLongitute, shiftLatitude)
-    .applyToLayer(biomesLayer)
     .fromColour(63,227,153).toLevel(BIOME_DESERT) //Ethiopian xeric grasslands and shrublands
-    .fromColour(219,104,87).toLevel(BIOME_DESERT) //Etosha Pan halophytics
-    .fromColour(221,113,122).toLevel(BIOME_FOREST) //Euxine-Colchic broadleaf forests
+    .fromColour(219,104,87).toLevel(BIOME_DESERT); //Etosha Pan halophytics
+
+    eco_vanilla = eco_vanilla.fromColour(221,113,122).toLevel(BIOME_FOREST) //Euxine-Colchic broadleaf forests
     .fromColour(227,133,32).toLevel(BIOME_SWAMP) //Everglades
     .fromColour(202,156,56).toLevel(BIOME_WINDSWEPT_SAVANNA) //Eyre and York mallee
     .fromColour(198,219,92).toLevel(BIOME_MEADOW) //Faroe Islands boreal grasslands
@@ -1332,9 +1682,10 @@ if ( true ) {
     .fromColour(74,215,52).toLevel(BIOME_TAIGA) //Honshu alpine conifer forests
     .fromColour(125,208,221).toLevel(BIOME_FOREST) //Huang He Plain mixed forests
     .fromColour(92,224,152).toLevel(BIOME_SPARSE_JUNGLE) //Humid Chaco
-    .fromColour(108,36,202).toLevel(BIOME_SWAMP) //Humid Pampas
-    .fromColour(204,175,78).toLevel(BIOME_JUNGLE) //Huon Peninsula montane rain forests
-    .fromColour(108,217,208).toLevel(BIOME_WINDSWEPT_FOREST) //Iberian conifer forests
+    .fromColour(108,36,202).toLevel(BIOME_PLAINS) //Humid Pampas
+    .fromColour(204,175,78).toLevel(BIOME_JUNGLE); //Huon Peninsula montane rain forests
+
+    eco_vanilla = eco_vanilla.fromColour(108,217,208).toLevel(BIOME_WINDSWEPT_FOREST) //Iberian conifer forests
     .fromColour(165,216,94).toLevel(BIOME_FOREST) //Iberian sclerophyllous and semi-deciduous forests
     .fromColour(104,187,208).toLevel(BIOME_BIRCH_FOREST) //Iceland boreal birch forests and alpine tundra
     .fromColour(237,124,127).toLevel(BIOME_BEACH) //Ile Europa and Bassas da India xeric scrub
@@ -1397,8 +1748,9 @@ if ( true ) {
     .fromColour(44,214,106).toLevel(BIOME_SPARSE_JUNGLE) //Lara-Falcón dry forests
     .fromColour(233,178,49).toLevel(BIOME_JUNGLE) //Leeward Islands moist forests
     .fromColour(200,178,13).toLevel(BIOME_SPARSE_JUNGLE) //Lesser Antillean dry forests
-    .fromColour(227,191,107).toLevel(BIOME_SPARSE_JUNGLE) //Lesser Sundas deciduous forests
-    .fromColour(52,129,223).toLevel(BIOME_SPARSE_JUNGLE) //Llanos
+    .fromColour(227,191,107).toLevel(BIOME_SPARSE_JUNGLE); //Lesser Sundas deciduous forests
+
+    eco_vanilla = eco_vanilla.fromColour(52,129,223).toLevel(BIOME_SPARSE_JUNGLE) //Llanos
     .fromColour(161,77,200).toLevel(BIOME_SPARSE_JUNGLE) //Lord Howe Island subtropical forests
     .fromColour(137,49,225).toLevel(BIOME_JUNGLE) //Louisiade Archipelago rain forests
     .fromColour(222,40,216).toLevel(BIOME_SNOWY_TAIGA) //Low Arctic tundra
@@ -1461,8 +1813,9 @@ if ( true ) {
     .fromColour(129,237,121).toLevel(BIOME_FOREST) //Miskito pine forests
     .fromColour(124,200,93).toLevel(BIOME_FOREST) //Mississippi lowland forests
     .fromColour(28,237,230).toLevel(BIOME_WINDSWEPT_SAVANNA) //Mitchell grass downs
-    .fromColour(231,154,112).toLevel(BIOME_JUNGLE) //Mizoram-Manipur-Kachin rain forests
-    .fromColour(110,131,234).toLevel(BIOME_BADLANDS) //Mojave desert
+    .fromColour(231,154,112).toLevel(BIOME_JUNGLE); //Mizoram-Manipur-Kachin rain forests
+
+    eco_vanilla = eco_vanilla.fromColour(110,131,234).toLevel(BIOME_BADLANDS) //Mojave desert
     .fromColour(229,148,26).toLevel(BIOME_PLAINS) //Mongolian-Manchurian grassland
     .fromColour(30,135,210).toLevel(BIOME_MEADOW) //Montana Valley and Foothill grasslands
     .fromColour(217,119,14).toLevel(BIOME_WOODED_BADLANDS) //Montane fynbos and renosterveld
@@ -1523,16 +1876,11 @@ if ( true ) {
     .fromColour(209,105,131).toLevel(BIOME_TAIGA) //Northern Canadian Shield taiga
     .fromColour(119,177,219).toLevel(BIOME_SPARSE_JUNGLE) //Northern Congolian forest-savanna mosaic
     .fromColour(91,222,101).toLevel(BIOME_TAIGA) //Northern Cordillera forests
-    .go();
-
-   wp.applyHeightMap(ecoRegionImage)
-    .toWorld(world)
-    .shift(shiftLongitute, shiftLatitude)
-    .applyToLayer(biomesLayer)
     .fromColour(85,236,168).toLevel(BIOME_SPARSE_JUNGLE) //Northern dry deciduous forests
     .fromColour(86,187,210).toLevel(BIOME_SPARSE_JUNGLE) //Northern Indochina subtropical forests
-    .fromColour(214,203,77).toLevel(BIOME_FOREST) //Northern Khorat Plateau moist deciduous forests
-    .fromColour(47,33,239).toLevel(BIOME_MANGROVE_SWAMP) //Northern Mesoamerican Pacific mangroves
+    .fromColour(214,203,77).toLevel(BIOME_FOREST); //Northern Khorat Plateau moist deciduous forests
+
+    eco_vanilla = eco_vanilla.fromColour(47,33,239).toLevel(BIOME_MANGROVE_SWAMP) //Northern Mesoamerican Pacific mangroves
     .fromColour(235,102,45).toLevel(BIOME_SUNFLOWER_PLAINS) //Northern mixed grasslands
     .fromColour(47,224,221).toLevel(BIOME_SWAMP) //Northern New Guinea lowland rain and freshwater swamp forests
     .fromColour(194,122,216).toLevel(BIOME_JUNGLE) //Northern New Guinea montane rain forests
@@ -1595,8 +1943,9 @@ if ( true ) {
     .fromColour(109,203,112).toLevel(BIOME_FOREST) //Piney Woods forests
     .fromColour(170,124,213).toLevel(BIOME_FOREST) //Po Basin mixed forests
     .fromColour(16,210,71).toLevel(BIOME_PLAINS) //Pontic steppe
-    .fromColour(213,162,60).toLevel(BIOME_SPARSE_JUNGLE) //Puerto Rican dry forests
-    .fromColour(130,112,235).toLevel(BIOME_JUNGLE) //Puerto Rican moist forests
+    .fromColour(213,162,60).toLevel(BIOME_SPARSE_JUNGLE); //Puerto Rican dry forests
+
+    eco_vanilla = eco_vanilla.fromColour(130,112,235).toLevel(BIOME_JUNGLE) //Puerto Rican moist forests
     .fromColour(86,76,205).toLevel(BIOME_FOREST) //Puget lowland forests
     .fromColour(35,205,61).toLevel(BIOME_SWAMP) //Purus varzeá
     .fromColour(82,113,200).toLevel(BIOME_JUNGLE) //Purus-Madeira moist forests
@@ -1659,8 +2008,9 @@ if ( true ) {
     .fromColour(92,220,45).toLevel(BIOME_SPARSE_JUNGLE) //Sinaloan dry forests
     .fromColour(74,130,235).toLevel(BIOME_SPARSE_JUNGLE) //Sinú Valley dry forests
     .fromColour(104,211,103).toLevel(BIOME_BADLANDS) //Snake-Columbia shrub steppe
-    .fromColour(231,129,111).toLevel(BIOME_JUNGLE) //Society Islands tropical moist forests
-    .fromColour(222,120,190).toLevel(BIOME_DESERT) //Socotra Island xeric shrublands
+    .fromColour(231,129,111).toLevel(BIOME_JUNGLE); //Society Islands tropical moist forests
+
+    eco_vanilla = eco_vanilla.fromColour(222,120,190).toLevel(BIOME_DESERT) //Socotra Island xeric shrublands
     .fromColour(126,212,136).toLevel(BIOME_JUNGLE) //Solimões-Japurá moist forests
     .fromColour(215,85,25).toLevel(BIOME_JUNGLE) //Solomon Islands rain forests
     .fromColour(186,209,93).toLevel(BIOME_SAVANNA) //Somali Acacia-Commiphora bushlands and thickets
@@ -1723,8 +2073,9 @@ if ( true ) {
     .fromColour(113,236,144).toLevel(BIOME_DESERT) //Southwestern Arabian montane woodlands
     .fromColour(108,201,210).toLevel(BIOME_JUNGLE) //Sri Lanka dry-zone dry evergreen forests
     .fromColour(202,202,45).toLevel(BIOME_JUNGLE) //Sri Lanka lowland rain forests
-    .fromColour(62,227,106).toLevel(BIOME_JUNGLE) //Sri Lanka montane rain forests
-    .fromColour(145,124,229).toLevel(BIOME_JAGGED_PEAKS) //St. Helena scrub and woodlands
+    .fromColour(62,227,106).toLevel(BIOME_JUNGLE); //Sri Lanka montane rain forests
+
+    eco_vanilla = eco_vanilla.fromColour(145,124,229).toLevel(BIOME_JAGGED_PEAKS) //St. Helena scrub and woodlands
     .fromColour(131,24,224).toLevel(BIOME_STONY_PEAKS) //St. Peter and St. Paul rocks
     .fromColour(223,94,58).toLevel(BIOME_WINDSWEPT_SAVANNA) //Succulent Karoo
     .fromColour(200,27,105).toLevel(BIOME_SWAMP) //Suiphun-Khanka meadows and forest meadows
@@ -1787,14 +2138,9 @@ if ( true ) {
     .fromColour(128,210,177).toLevel(BIOME_SPARSE_JUNGLE) //Tumbes-Piura dry forests
     .fromColour(56,218,230).toLevel(BIOME_SUNFLOWER_PLAINS) //Tyrrhenian-Adriatic Sclerophyllous and mixed forests
     .fromColour(128,214,144).toLevel(BIOME_JUNGLE) //Uatuma-Trombetas moist forests
-    .go();
+    .fromColour(220,61,25).toLevel(BIOME_JUNGLE); //Ucayali moist forests
 
-   wp.applyHeightMap(ecoRegionImage)
-    .toWorld(world)
-    .shift(shiftLongitute, shiftLatitude)
-    .applyToLayer(biomesLayer)
-    .fromColour(220,61,25).toLevel(BIOME_JUNGLE) //Ucayali moist forests
-    .fromColour(62,154,224).toLevel(BIOME_SPARSE_JUNGLE) //Upper Gangetic Plains moist deciduous forests
+    eco_vanilla = eco_vanilla.fromColour(62,154,224).toLevel(BIOME_SPARSE_JUNGLE) //Upper Gangetic Plains moist deciduous forests
     .fromColour(64,215,150).toLevel(BIOME_FOREST) //Upper Midwest forest-savanna transition
     .fromColour(207,78,110).toLevel(BIOME_TAIGA) //Ural montane forests and tundra
     .fromColour(208,161,104).toLevel(BIOME_SAVANNA) //Uruguayan savanna
@@ -1855,12 +2201,14 @@ if ( true ) {
     .go();
 
   if ( mod_BOP === "True" ) {
-   wp.applyHeightMap(ecoRegionImage)
+   var eco_bop = wp.applyHeightMap(ecoRegionImage)
     .toWorld(world)
     .shift(shiftLongitute, shiftLatitude)
-    .applyToLayer(biomesLayer)
-    .fromColour(143,206,84).toLevel(BIOME_BOP_RAINFOREST) //Admiralty Islands lowland rain forests
-    .fromColour(234,50,112).toLevel(BIOME_OTG_MEDITERRANEAN_FOREST) //Aegean and Western Turkey sclerophyllous and mixed forests
+    .applyToLayer(biomesLayer);
+
+    eco_bop = eco_bop.fromColour(143,206,84).toLevel(BIOME_BOP_RAINFOREST) //Admiralty Islands lowland rain forests
+    .fromColour(234,50,112).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Aegean and Western Turkey sclerophyllous and mixed forests
+    .fromColour(227,85,108).toLevel(BIOME_BOP_SNOWY_CONIFEROUS_FOREST) //Alps conifer and mixed forests
     .fromColour(234,32,136).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Anatolian conifer and deciduous mixed forests
     .fromColour(23,191,213).toLevel(BIOME_BOP_RAINFOREST) //Andaman Islands rain forests
     .fromColour(55,207,121).toLevel(BIOME_BOP_RAINFOREST) //Araucaria moist forests
@@ -1887,9 +2235,9 @@ if ( true ) {
     .fromColour(88,33,240).toLevel(BIOME_BOP_RAINFOREST) //Cook Islands tropical moist forests
     .fromColour(221,99,88).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Corsican montane broadleaf and mixed forests
     .fromColour(207,21,136).toLevel(BIOME_BOP_RAINFOREST) //Costa Rican seasonal moist forests
-    .fromColour(133,209,101).toLevel(BIOME_OTG_MEDITERRANEAN_FOREST) //Crete Mediterranean forests
+    .fromColour(133,209,101).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Crete Mediterranean forests
     .fromColour(234,14,219).toLevel(BIOME_BOP_RAINFOREST) //Cuban moist forests
-    .fromColour(239,21,144).toLevel(BIOME_OTG_MEDITERRANEAN_FOREST) //Cyprus Mediterranean forests
+    .fromColour(239,21,144).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Cyprus Mediterranean forests
     .fromColour(42,215,77).toLevel(BIOME_BOP_PASTURE) //Daurian forest steppe
     .fromColour(91,198,210).toLevel(BIOME_BOP_RAINFOREST) //Eastern Java-Bali montane rain forests
     .fromColour(229,105,67).toLevel(BIOME_BOP_RAINFOREST) //Eastern Java-Bali rain forests
@@ -1907,21 +2255,22 @@ if ( true ) {
     .fromColour(238,107,100).toLevel(BIOME_BOP_RAINFOREST) //Halmahera rain forests
     .fromColour(214,92,186).toLevel(BIOME_BOP_RAINFOREST) //Hawaii tropical moist forests
     .fromColour(99,117,230).toLevel(BIOME_BOP_RAINFOREST) //Hispaniolan moist forests
+    .fromColour(108,36,202).toLevel(BIOME_BOP_GRASSLAND) //Humid Pampas
     .fromColour(204,175,78).toLevel(BIOME_BOP_RAINFOREST) //Huon Peninsula montane rain forests
     .fromColour(108,217,208).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Iberian conifer forests
-    .fromColour(106,203,80).toLevel(BIOME_OTG_MEDITERRANEAN_FOREST) //Illyrian deciduous forests
+    .fromColour(106,203,80).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Illyrian deciduous forests
     .fromColour(124,211,127).toLevel(BIOME_BOP_RAINFOREST) //Isthmian-Atlantic moist forests
     .fromColour(89,230,139).toLevel(BIOME_BOP_RAINFOREST) //Isthmian-Pacific moist forests
-    .fromColour(30,217,114).toLevel(BIOME_OTG_MEDITERRANEAN_FOREST) //Italian sclerophyllous and semi-deciduous forests
+    .fromColour(30,217,114).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Italian sclerophyllous and semi-deciduous forests
     .fromColour(84,161,203).toLevel(BIOME_BOP_RAINFOREST) //Jamaican moist forests
     .fromColour(179,120,204).toLevel(BIOME_BOP_RAINFOREST) //Japurá-Solimoes-Negro moist forests
     .fromColour(219,127,199).toLevel(BIOME_BOP_RAINFOREST) //Juruá-Purus moist forests
     .fromColour(94,196,207).toLevel(BIOME_BOP_RAINFOREST) //Kayah-Karen montane rain forests
     .fromColour(54,210,197).toLevel(BIOME_BOP_RAINFOREST) //Kermadec Islands subtropical moist forests
     .fromColour(34,234,234).toLevel(BIOME_BOP_REDWOOD_FOREST) //Klamath-Siskiyou forests
-    .fromColour(235,42,225).toLevel(BIOME_BOP_RIVER) //Lake
-    .fromColour(233,178,49).toLevel(BIOME_BOP_RAINFOREST) //Leeward Islands moist forests
-    .fromColour(137,49,225).toLevel(BIOME_BOP_RAINFOREST) //Louisiade Archipelago rain forests
+    .fromColour(233,178,49).toLevel(BIOME_BOP_RAINFOREST); //Leeward Islands moist forests
+
+    eco_bop = eco_bop.fromColour(137,49,225).toLevel(BIOME_BOP_RAINFOREST) //Louisiade Archipelago rain forests
     .fromColour(124,146,225).toLevel(BIOME_BOP_RAINFOREST) //Luang Prabang montane rain forests
     .fromColour(123,202,127).toLevel(BIOME_BOP_RAINFOREST) //Luzon montane rain forests
     .fromColour(209,178,116).toLevel(BIOME_BOP_RAINFOREST) //Luzon rain forests
@@ -1943,10 +2292,10 @@ if ( true ) {
     .fromColour(200,83,204).toLevel(BIOME_BOP_RAINFOREST) //New Britain-New Ireland montane rain forests
     .fromColour(226,209,58).toLevel(BIOME_BOP_RAINFOREST) //New Caledonia rain forests
     .fromColour(110,203,49).toLevel(BIOME_BOP_RAINFOREST) //Nicobar Islands rain forests
-    .fromColour(61,167,238).toLevel(BIOME_BOP_CHERRY_BLOSSUM_GROVE) //Nihonkai evergreen forests
+    .fromColour(61,167,238).toLevel(BIOME_BOP_CHERRY_BLOSSOM_GROVE) //Nihonkai evergreen forests
     .fromColour(206,145,65).toLevel(BIOME_BOP_CHERRY_BLOSSOM_GROVE) //Nihonkai montane deciduous forests
-    .fromColour(58,218,37).toLevel(BIOME_LUSH_DESERT) //Nile Delta flooded savanna
-    .fromColour(31,203,63).toLevel(BIOME_JADE_CLIFFS) //North Central Rockies forests
+    .fromColour(58,218,37).toLevel(BIOME_BOP_LUSH_DESERT) //Nile Delta flooded savanna
+    .fromColour(31,203,63).toLevel(BIOME_BOP_JADE_CLIFFS) //North Central Rockies forests
     .fromColour(217,223,31).toLevel(BIOME_BOP_RAINFOREST) //North Western Ghats montane rain forests
     .fromColour(75,61,205).toLevel(BIOME_BOP_RAINFOREST) //Northern Annamites rain forests
     .fromColour(118,224,180).toLevel(BIOME_BOP_REDWOOD_FOREST) //Northern California coastal forests
@@ -1981,16 +2330,17 @@ if ( true ) {
     .fromColour(175,121,218).toLevel(BIOME_BOP_RAINFOREST) //Southern Annamites montane rain forests
     .fromColour(112,150,239).toLevel(BIOME_BOP_RAINFOREST) //Southern New Guinea lowland rain forests
     .fromColour(50,195,203).toLevel(BIOME_BOP_RAINFOREST) //Southwest Amazon moist forests
-    .fromColour(215,190,127).toLevel(BIOME_OTG_MEDITERRANEAN_FOREST) //Southwest Iberian Mediterranean sclerophyllous and mixed forests
+    .fromColour(215,190,127).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Southwest Iberian Mediterranean sclerophyllous and mixed forests
     .fromColour(202,202,45).toLevel(BIOME_BOP_RAINFOREST) //Sri Lanka lowland rain forests
     .fromColour(62,227,106).toLevel(BIOME_BOP_RAINFOREST) //Sri Lanka montane rain forests
-    .fromColour(145,124,229).toLevel(BIOME_BOP_VOLCANO) //St. Helena scrub and woodlands
-    .fromColour(39,158,205).toLevel(BIOME_BOP_RAINFOREST) //Sulawesi lowland rain forests
+    .fromColour(145,124,229).toLevel(BIOME_BOP_VOLCANO); //St. Helena scrub and woodlands
+
+    eco_bop = eco_bop.fromColour(39,158,205).toLevel(BIOME_BOP_RAINFOREST) //Sulawesi lowland rain forests
     .fromColour(81,209,58).toLevel(BIOME_BOP_RAINFOREST) //Sulawesi montane rain forests
     .fromColour(222,131,199).toLevel(BIOME_BOP_RAINFOREST) //Sulu Archipelago rain forests
     .fromColour(220,50,236).toLevel(BIOME_BOP_RAINFOREST) //Sumatran lowland rain forests
     .fromColour(180,18,216).toLevel(BIOME_BOP_RAINFOREST) //Sumatran montane rain forests
-    .fromColour(146,66,217).toLevel(BIOME_BOP_CHERRY_BLOSSUM_GROVE) //Taiheiyo evergreen forests
+    .fromColour(146,66,217).toLevel(BIOME_BOP_CHERRY_BLOSSOM_GROVE) //Taiheiyo evergreen forests
     .fromColour(237,109,84).toLevel(BIOME_BOP_RAINFOREST) //Tapajós-Xingu moist forests
     .fromColour(51,21,202).toLevel(BIOME_BOP_RAINFOREST) //Tasmanian temperate rain forests
     .fromColour(214,49,220).toLevel(BIOME_BOP_RAINFOREST) //Tenasserim-South Thailand semi-evergreen rain forests
@@ -2002,7 +2352,7 @@ if ( true ) {
     .fromColour(215,145,14).toLevel(BIOME_BOP_RAINFOREST) //Trobriand Islands rain forests
     .fromColour(162,238,118).toLevel(BIOME_BOP_RAINFOREST) //Tuamotu tropical moist forests
     .fromColour(218,227,91).toLevel(BIOME_BOP_RAINFOREST) //Tubuai tropical moist forests
-    .fromColour(56,218,230).toLevel(BIOME_OTG_MEDITERRANEAN_FOREST) //Tyrrhenian-Adriatic Sclerophyllous and mixed forests
+    .fromColour(56,218,230).toLevel(BIOME_BOP_MEDITERRANEAN_FOREST) //Tyrrhenian-Adriatic Sclerophyllous and mixed forests
     .fromColour(128,214,144).toLevel(BIOME_BOP_RAINFOREST) //Uatuma-Trombetas moist forests
     .fromColour(220,61,25).toLevel(BIOME_BOP_RAINFOREST) //Ucayali moist forests
     .fromColour(114,187,207).toLevel(BIOME_BOP_RAINFOREST) //Vanuatu rain forests
@@ -2010,6 +2360,7 @@ if ( true ) {
     .fromColour(153,219,131).toLevel(BIOME_BOP_RAINFOREST) //Vogelkop montane rain forests
     .fromColour(214,44,106).toLevel(BIOME_BOP_RAINFOREST) //Vogelkop-Aru lowland rain forests
     .fromColour(129,186,215).toLevel(BIOME_BOP_RAINFOREST) //Western Ecuador moist forests
+    .fromColour(141,202,80).toLevel(BIOME_BOP_OLD_GROWTH_WOODLAND) //Western European broadleaf forests
     .fromColour(136,228,38).toLevel(BIOME_BOP_BAYOU) //Western Gulf coastal grasslands
     .fromColour(61,209,232).toLevel(BIOME_BOP_RAINFOREST) //Western Java montane rain forests
     .fromColour(33,207,219).toLevel(BIOME_BOP_RAINFOREST) //Western Java rain forests
@@ -2020,15 +2371,16 @@ if ( true ) {
     .fromColour(216,15,35).toLevel(BIOME_BOP_RAINFOREST) //Yapen rain forests
     .fromColour(54,217,111).toLevel(BIOME_BOP_RAINFOREST) //Yucatán moist forests
     .go();
-
   }
 
   if ( mod_BYG  === "True" ) {
-   wp.applyHeightMap(ecoRegionImage)
+   var eco_byg = wp.applyHeightMap(ecoRegionImage)
     .toWorld(world)
     .shift(shiftLongitute, shiftLatitude)
-    .applyToLayer(biomesLayer)
-    .fromColour(143,206,84).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Admiralty Islands lowland rain forests
+    .applyToLayer(biomesLayer);
+
+    eco_byg = eco_byg.fromColour(143,206,84).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Admiralty Islands lowland rain forests
+    .fromColour(227,85,108).toLevel(BIOME_BYG_ALPS) //Alps conifer and mixed forests
     .fromColour(23,191,213).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Andaman Islands rain forests
     .fromColour(55,207,121).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Araucaria moist forests
     .fromColour(39,212,169).toLevel(BIOME_BYG_ATACAMA_DESERT) //Atacama desert
@@ -2090,8 +2442,9 @@ if ( true ) {
     .fromColour(62,203,15).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Marquesas tropical moist forests
     .fromColour(53,227,53).toLevel(BIOME_BYG_EBONY_WOODS) //Mascarene forests
     .fromColour(118,96,232).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Mentawai Islands rain forests
-    .fromColour(97,201,118).toLevel(BIOME_BYG_CANADIAN_SHIELD) //Midwestern Canadian Shield forests
-    .fromColour(207,117,65).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Mindanao montane rain forests
+    .fromColour(97,201,118).toLevel(BIOME_BYG_CANADIAN_SHIELD); //Midwestern Canadian Shield forests
+
+    eco_byg = eco_byg.fromColour(207,117,65).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Mindanao montane rain forests
     .fromColour(50,123,225).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Mindanao-Eastern Visayas rain forests
     .fromColour(178,118,215).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Mindoro rain forests
     .fromColour(231,154,112).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Mizoram-Manipur-Kachin rain forests
@@ -2104,7 +2457,7 @@ if ( true ) {
     .fromColour(200,83,204).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //New Britain-New Ireland montane rain forests
     .fromColour(226,209,58).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //New Caledonia rain forests
     .fromColour(110,203,49).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Nicobar Islands rain forests
-    .fromColour(61,167,238).toLevel(BIOME_BYG_CHERRY_BLOSSUM_FOREST) //Nihonkai evergreen forests
+    .fromColour(61,167,238).toLevel(BIOME_BYG_CHERRY_BLOSSOM_FOREST) //Nihonkai evergreen forests
     .fromColour(206,145,65).toLevel(BIOME_BYG_CHERRY_BLOSSOM_FOREST) //Nihonkai montane deciduous forests
     .fromColour(31,203,63).toLevel(BIOME_BYG_DACITE_RIDGES) //North Central Rockies forests
     .fromColour(217,223,31).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //North Western Ghats montane rain forests
@@ -2141,7 +2494,7 @@ if ( true ) {
     .fromColour(222,131,199).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Sulu Archipelago rain forests
     .fromColour(220,50,236).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Sumatran lowland rain forests
     .fromColour(180,18,216).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Sumatran montane rain forests
-    .fromColour(146,66,217).toLevel(BIOME_BYG_CHERRY_BLOSSUM_FOREST) //Taiheiyo evergreen forests
+    .fromColour(146,66,217).toLevel(BIOME_BYG_CHERRY_BLOSSOM_FOREST) //Taiheiyo evergreen forests
     .fromColour(237,109,84).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Tapajós-Xingu moist forests
     .fromColour(214,49,220).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Tenasserim-South Thailand semi-evergreen rain forests
     .fromColour(203,62,228).toLevel(BIOME_BYG_PRAIRIE) //Texas blackland prairies
@@ -2154,12 +2507,14 @@ if ( true ) {
     .fromColour(128,214,144).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Uatuma-Trombetas moist forests
     .fromColour(220,61,25).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Ucayali moist forests
     .fromColour(64,215,150).toLevel(BIOME_BYG_GREAT_LAKES) //Upper Midwest forest-savanna transition
-    .fromColour(114,187,207).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Vanuatu rain forests
-    .fromColour(208,24,76).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Veracruz moist forests
+    .fromColour(114,187,207).toLevel(BIOME_BYG_TROPICAL_RAINFOREST); //Vanuatu rain forests
+
+    eco_byg = eco_byg.fromColour(208,24,76).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Veracruz moist forests
     .fromColour(153,219,131).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Vogelkop montane rain forests
     .fromColour(214,44,106).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Vogelkop-Aru lowland rain forests
     .fromColour(145,40,202).toLevel(BIOME_BYG_ASPEN_FOREST) //Wasatch and Uinta montane forests
     .fromColour(129,186,215).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Western Ecuador moist forests
+    .fromColour(141,202,80).toLevel(BIOME_BYG_BLACK_FOREST) //Western European broadleaf forests
     .fromColour(240,175,132).toLevel(BIOME_BYG_GREAT_LAKES) //Western Great Lakes forests
     .fromColour(61,209,232).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Western Java montane rain forests
     .fromColour(33,207,219).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Western Java rain forests
@@ -2170,14 +2525,15 @@ if ( true ) {
     .fromColour(216,15,35).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Yapen rain forests
     .fromColour(54,217,111).toLevel(BIOME_BYG_TROPICAL_RAINFOREST) //Yucatán moist forests
     .go();
-
   }
 
   if ( mod_Terralith  === "True" ) {
-   wp.applyHeightMap(ecoRegionImage)
+   var eco_terralith = wp.applyHeightMap(ecoRegionImage)
     .toWorld(world)
     .shift(shiftLongitute, shiftLatitude)
-    .applyToLayer(biomesLayer)
+    .applyToLayer(biomesLayer);
+
+    eco_terralith = eco_terralith.fromColour(227,85,108).toLevel(BIOME_TERRALITH_ALPINE_GROVE) //Alps conifer and mixed forests
     .fromColour(61,164,224).toLevel(BIOME_TERRALITH_HOT_SHRUBLAND) //California coastal sage and chaparral
     .fromColour(119,95,226).toLevel(BIOME_TERRALITH_SHRUBLAND) //California interior chaparral and woodlands
     .fromColour(212,24,215).toLevel(BIOME_TERRALITH_WHITE_MESA) //Colorado Plateau shrublands
@@ -2191,8 +2547,9 @@ if ( true ) {
     .fromColour(145,40,202).toLevel(BIOME_TERRALITH_TEMPERATE_HIGHLANDS) //Wasatch and Uinta montane forests
     .fromColour(215,84,91).toLevel(BIOME_TERRALITH_BRUSHLAND) //Western short grasslands
     .go();
-
   }
+
+
 
 
 //Insert custom biomes / modded biomes ending here:
@@ -2300,7 +2657,7 @@ if ( true ) {
 		.applyToTerrain()
 
 		.fromColour(0, 0, 0).toTerrain(4) //podzol
-		.fromColour(20, 20, 20).toTerrain(grassTerrain) //grass
+		.fromColour(20, 20, 20).toTerrain(mudTerrain) //mud
 		.fromColour(50, 60, 30).toTerrain(grassTerrain) //grass
 
 		.fromColour(0, 50, 0).toTerrain(grassTerrain) //grass
@@ -3555,14 +3912,14 @@ if ( settingsVolcanos === "True" ) {
 		.fromColour(255, 100, 0).toLevel(1) //custom terrain = obsidian or blackstone border for lava
 		.go();
 		
-	if ( mod_BOP === true ) {
+	if ( mod_BOP === "True" ) {
 		wp.applyHeightMap(landuse) 
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
 			.withFilter(noWaterFilter)
 			.applyToLayer(biomesLayer)
-			.fromColour(255, 128, 0).toTerrain(BIOME_BoP_VOLCANO)
-			.fromColour(255, 100, 0).toLevel(BIOME_BoP_VOLCANO)
+			.fromColour(255, 128, 0).toTerrain(BIOME_BOP_VOLCANO)
+			.fromColour(255, 100, 0).toLevel(BIOME_BOP_VOLCANO)
 			.go();
 	}
 		
@@ -3587,13 +3944,13 @@ if ( true ) {
 		.fromColour(255, 255, 127).toLevel(BIOME_BEACH) //biome=beach
 		.go();
 		
-	if ( mod_BOP === true ) {
+	if ( mod_BOP === "True" ) {
 		wp.applyHeightMap(landuse) 
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
 			.withFilter(noWaterFilter)
 			.applyToLayer(biomesLayer)
-			.fromColour(255, 255, 127).toLevel(BIOME_BoP_DUNE_BEACH) //biome=dune beach
+			.fromColour(255, 255, 127).toLevel(BIOME_BOP_DUNE_BEACH) //biome=dune beach
 			.go();
 	}
 	
@@ -4387,91 +4744,91 @@ if ( settingsVanillaPopulation === "False" ) {
 	wp.applyLayer(coalOreLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 
 	wp.applyLayer(diamondOreLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 
 	wp.applyLayer(emeraldOreLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(goldOreLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(ironOreLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(lapisOreLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(quartzBlockLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 
 	wp.applyLayer(redstoneOreLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 
 	wp.applyLayer(clayDepositLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 
 	wp.applyLayer(dirtDepositLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(undergroundLavaLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(redSandDepositLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(sandDepositLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(undergroundWaterLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 
 	wp.applyLayer(undergroundLavaLakeLayer)
 		.toWorld(world)
 		.shift(shiftLongitute, shiftLatitude)
-		.toLevel(7)
+		.toLevel(15)
 		.go();
 		
 	wp.applyLayer(andesiteDepositLayer)
@@ -4512,12 +4869,6 @@ if ( settingsVanillaPopulation === "False" ) {
 			.shift(shiftLongitute, shiftLatitude)
 			.toLevel(15)
 			.go();
-
-		wp.applyLayer(amethystGeodesLayer)
-			.toWorld(world)
-			.shift(shiftLongitute, shiftLatitude)
-			.toLevel(15)
-			.go();
 		
 	}
 	
@@ -4526,45 +4877,67 @@ if ( settingsVanillaPopulation === "False" ) {
 		wp.applyLayer(deepslateCoalDepositLayer)
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
-			.toLevel(7)
+			.toLevel(15)
 			.go();
 
 		wp.applyLayer(deepslateDiamondOreLayer)
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
-			.toLevel(7)
+			.toLevel(15)
 			.go();
 
 		wp.applyLayer(deepslateEmeraldOreLayer)
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
-			.toLevel(7)
+			.toLevel(15)
 			.go();
 			
 		wp.applyLayer(deepslateGoldOreLayer)
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
-			.toLevel(7)
+			.toLevel(15)
 			.go();
 			
 		wp.applyLayer(deepslateIronOreLayer)
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
-			.toLevel(7)
+			.toLevel(15)
 			.go();
 			
 		wp.applyLayer(deepslateLapisOreLayer)
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
-			.toLevel(7)
+			.toLevel(15)
 			.go();
 
 		wp.applyLayer(deepslateRedstoneOreLayer)
 			.toWorld(world)
 			.shift(shiftLongitute, shiftLatitude)
+			.toLevel(15)
+			.go();
+		
+	}
+	
+	if ( mod_Create === "True" ) {
+		
+		var mod_Create_zincOreLayer = wp.getLayer().fromFile(path+'wpscript/ores/mods/create_zinc_ore.layer').go();
+		var mod_Create_deepslateZincOreLayer = wp.getLayer().fromFile(path+'wpscript/ores/mods/create_zinc_ore_deepslate.layer').go();
+		
+		wp.applyLayer(mod_Create_zincOreLayer)
+			.toWorld(world)
+			.shift(shiftLongitute, shiftLatitude)
 			.toLevel(7)
 			.go();
-
+		
+		if ( settingsMapVersion === "1-18" || settingsMapVersion === "1-19" ) {
+			
+			wp.applyLayer(mod_Create_deepslateZincOreLayer)
+				.toWorld(world)
+				.shift(shiftLongitute, shiftLatitude)
+				.toLevel(7)
+				.go();
+					
+		}
 		
 	}
 	
@@ -4590,6 +4963,16 @@ if ( true ) {
 		.shift(shiftLongitute, shiftLatitude)
 		.toLevel(7)
 		.go();
+		
+	if ( settingsMapVersion === "1-17" || settingsMapVersion === "1-18" || settingsMapVersion === "1-19" ) {
+		
+		wp.applyLayer(amethystGeodesLayer)
+			.toWorld(world)
+			.shift(shiftLongitute, shiftLatitude)
+			.toLevel(15)
+			.go();
+		
+	}
 	
 }
 
@@ -4960,6 +5343,62 @@ if ( settingsOres === "True" ) {
 				.go();
 		}
 
+	}
+	
+	if ( mod_Create === "True" ) {
+		
+		var mod_Create_zincImage = wp.getHeightMap().fromFile(path+'image_exports/'+tile+'/'+tile+'_zinc.png').go();
+		var mod_Create_zincDepositLayer = wp.getLayer().fromFile(path+'wpscript/ores/mods/create_zinc_deposit.layer').go();
+		var mod_Create_deepslateZincDepositLayer = wp.getLayer().fromFile(path+'wpscript/ores/mods/create_zinc_deposit_deepslate.layer').go();
+		
+		wp.applyHeightMap(mod_Create_zincImage) 
+			.toWorld(world)
+			.shift(shiftLongitute, shiftLatitude)
+			.applyToLayer(mod_Create_zincDepositLayer)
+			.fromLevels(0, 15).toLevel(8)
+			.fromLevels(16, 31).toLevel(7)
+			.fromLevels(32, 47).toLevel(7)
+			.fromLevels(48, 63).toLevel(6)
+			.fromLevels(64, 79).toLevel(6)
+			.fromLevels(80, 95).toLevel(5)
+			.fromLevels(96, 111).toLevel(5)
+			.fromLevels(112, 127).toLevel(4)
+			.fromLevels(128, 143).toLevel(4)
+			.fromLevels(144, 159).toLevel(3)
+			.fromLevels(160, 175).toLevel(3)
+			.fromLevels(176, 191).toLevel(2)
+			.fromLevels(192, 207).toLevel(2)
+			.fromLevels(208, 223).toLevel(1)
+			.fromLevels(224, 239).toLevel(1)
+			.fromLevels(240, 255).toLevel(0)
+			.go();
+		
+		if ( settingsMapVersion === "1-18" || settingsMapVersion === "1-19" ) {
+			
+			wp.applyHeightMap(mod_Create_zincImage) 
+				.toWorld(world)
+				.shift(shiftLongitute, shiftLatitude)
+				.applyToLayer(mod_Create_deepslateZincDepositLayer)
+				.fromLevels(0, 15).toLevel(8)
+				.fromLevels(16, 31).toLevel(7)
+				.fromLevels(32, 47).toLevel(7)
+				.fromLevels(48, 63).toLevel(6)
+				.fromLevels(64, 79).toLevel(6)
+				.fromLevels(80, 95).toLevel(5)
+				.fromLevels(96, 111).toLevel(5)
+				.fromLevels(112, 127).toLevel(4)
+				.fromLevels(128, 143).toLevel(4)
+				.fromLevels(144, 159).toLevel(3)
+				.fromLevels(160, 175).toLevel(3)
+				.fromLevels(176, 191).toLevel(2)
+				.fromLevels(192, 207).toLevel(2)
+				.fromLevels(208, 223).toLevel(1)
+				.fromLevels(224, 239).toLevel(1)
+				.fromLevels(240, 255).toLevel(0)
+				.go();
+					
+		}
+		
 	}
 		
 }
